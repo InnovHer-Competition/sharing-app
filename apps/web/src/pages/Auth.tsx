@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { AuthResponse, Role } from "@pcos/shared";
 import { ErrorAlert } from "../components/Layout";
 import { Icon } from "../components/Icon";
-import { api } from "../lib/api";
+import { api, API_CONFIGURED } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { hasWallet, signWalletChallenge } from "../lib/wallet";
 
@@ -35,7 +35,17 @@ function AuthLayout({ children }: { children: ReactNode }) {
         </div>
         <small style={{ opacity: 0.75 }}>Decision support only. Not a substitute for medical advice.</small>
       </section>
-      <section className="auth-form">{children}</section>
+      <section className="auth-form">
+        <div style={{ display: "grid", gap: 16, width: "min(400px, 100%)" }}>
+          {!API_CONFIGURED && (
+            <div className="alert alert-error" role="alert">
+              <strong>Backend not connected.</strong> This build has no API URL, so sign-in and sign-up can't work yet.
+              Deploy <code>apps/server</code>, set the <code>API_URL</code> repository variable, and re-run the deployment.
+            </div>
+          )}
+          {children}
+        </div>
+      </section>
     </div>
   );
 }
