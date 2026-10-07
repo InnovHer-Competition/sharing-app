@@ -1,0 +1,9 @@
+**/node_modules
+**/dist
+**/data
+**/.env
+**/*.db
+.git
+.github
+apps/web/*
+!apps/web/package.json

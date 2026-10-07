@@ -1,0 +1,102 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Lint, typecheck, test & build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  deploy-web:
+    name: Deploy frontend to GitHub Pages
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Build web app
+        run: npm run build --workspace @pcos/web
+        env:
+          # Project sites are served from /<repo>/.
+          BASE_PATH: /${{ github.event.repository.name }}/
+          # Set these under Settings → Secrets and variables → Actions → Variables.
+          VITE_API_URL: ${{ vars.API_URL }}
+          VITE_SHOW_DEMO_ACCOUNTS: ${{ vars.SHOW_DEMO_ACCOUNTS || 'true' }}
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/web/dist
+      - id: deployment
+        uses: actions/deploy-pages@v4
+
+  publish-server:
+    name: Publish API image to GHCR
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      # Optional: deploy-hook URL of your host (Render, Railway, Fly, …) to redeploy after publishing.
+      DEPLOY_HOOK: ${{ secrets.API_DEPLOY_HOOK }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}-api
+          tags: |
+            type=raw,value=latest
+            type=sha
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/server/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Trigger API redeploy
+        if: env.DEPLOY_HOOK != ''
+        run: curl -fsS -X POST "$DEPLOY_HOOK"
