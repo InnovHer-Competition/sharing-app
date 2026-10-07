@@ -8,7 +8,7 @@
     "apps/*"
   ],
   "scripts": {
-    "dev": "npm run dev --workspace @pcos/server & npm run dev --workspace @pcos/web",
+    "dev": "concurrently -n api,web -c magenta,cyan \"npm:dev:server\" \"npm:dev:web\"",
     "dev:server": "npm run dev --workspace @pcos/server",
     "dev:web": "npm run dev --workspace @pcos/web",
     "build": "npm run build --workspaces --if-present",
@@ -19,4 +19,7 @@
   "engines": {
     "node": ">=22.13"
   },
- 
+  "devDependencies": {
+    "concurrently": "^10.0.5"
+  }
+}
