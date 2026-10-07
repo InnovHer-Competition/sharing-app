@@ -11,9 +11,6 @@ import type {
 } from "@pcos/shared";
 import type { DeidentifiedRecord } from "@pcos/shared";
 
-// An unset CI variable arrives as "", so treat blank the same as missing.
-// Only local development falls back to the local API; a production build
-// without an API URL would otherwise post to the static host and get 405s.
 const configuredApiUrl = import.meta.env.VITE_API_URL?.trim();
 export const API_URL = (configuredApiUrl || (import.meta.env.DEV ? "http://localhost:8787" : "")).replace(/\/$/, "");
 export const API_CONFIGURED = API_URL !== "";

@@ -196,6 +196,8 @@ With `SEED_DEMO=true` (the default outside production), an empty database is see
 ```bash
 pnpm dev             # Start API (8787) and web (5173)
 pnpm build           # Build all workspaces
+pnpm build:server    # Build only the API (used on Render)
+pnpm start           # Run the built API (used on Render)
 pnpm typecheck       # TypeScript checks across the workspace
 pnpm lint            # Lint the frontend with oxlint
 pnpm test            # Shared + API test suites
@@ -282,13 +284,13 @@ The service should respond `{ "ref": "<chain tx hash or proof id>" }`. The refer
 |---|---|---|
 | `test` | PR + `main` | `pnpm install --frozen-lockfile`, lint, typecheck, tests, build |
 | `deploy-web` | `main` | Builds the frontend and deploys it to **GitHub Pages** |
-| `publish-server` | `main` | Builds `apps/server/Dockerfile` and pushes `ghcr.io/<owner>/<repo>-api:latest` and `:sha-…`; optionally calls a host deploy hook |
+| `publish-server` | `main` | Builds `apps/server/Dockerfile`, pushes `ghcr.io/<owner>/<repo>-api:latest` and `:sha-…`, and triggers the Render deploy hook when `API_DEPLOY_HOOK` is set |
 
 ### 6.2 Frontend: GitHub Pages
 
 1. **Settings → Pages → Source:** select **GitHub Actions**.
 2. **Settings → Secrets and variables → Actions → Variables:**
-   - `API_URL`: public URL of the deployed API, e.g. `https://pcos-api.example.com`
+   - `API_URL`: public URL of the deployed API, i.e. the Render service URL `https://<service>.onrender.com` (§6.4)
    - `SHOW_DEMO_ACCOUNTS` *(optional)*: `false` to hide demo shortcuts
 3. Push to `main`. The site is published at `https://<owner>.github.io/<repo>/`, i.e. [innovher-competition.github.io/sharing-app](https://innovher-competition.github.io/sharing-app/) for this repository.
 
@@ -308,6 +310,57 @@ docker run -p 8787:8787 -v pcos-data:/data \
 ```
 
 The CI pipeline publishes the same image to GHCR, so any container host (Render, Railway, Fly.io, Azure Container Apps, a VM) can run `ghcr.io/<owner>/<repo>-api:latest`. Set the host's deploy-hook URL as the `API_DEPLOY_HOOK` repository secret to redeploy automatically after each publish.
+
+### 6.4 Backend: Render
+
+The API is hosted on **[Render](https://render.com)** in the team workspace: [dashboard.render.com/w/tea-db3bhkt9fdbs73ajuhu0](https://dashboard.render.com/w/tea-db3bhkt9fdbs73ajuhu0), using Render's Node runtime from the repository root.
+
+**1. Create the web service.** In the workspace, choose **New → Web Service**, connect `InnovHer-Competition/sharing-app` and configure:
+
+| Setting | Value |
+|---|---|
+| Language / Runtime | Node (version pinned to 24 by [`.node-version`](.node-version)) |
+| Branch | `main` |
+| Root directory | *(empty: repository root)* |
+| Build command | `pnpm install --frozen-lockfile && pnpm build:server` |
+| Start command | `pnpm start` |
+| Health check path | `/api/health` |
+
+`pnpm build:server` builds only the API. The frontend is deployed separately to GitHub Pages (§6.2), so there is no need to build it on Render. Use `&&` rather than `;` so a failed install stops the build.
+
+**2. Set the environment variables** under **Environment**:
+
+| Key | Value |
+|---|---|
+| `NODE_ENV` | `production` (makes `JWT_SECRET` mandatory and turns off demo seeding unless `SEED_DEMO` is set) |
+| `JWT_SECRET` | Random secret: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`. Without it, sessions are invalidated on every restart |
+| `CORS_ORIGIN` | `https://innovher-competition.github.io` |
+| `SEED_DEMO` | `true` for the demo accounts (§4.3), `false` for real users |
+| `DATABASE_PATH` | `/var/data/pcos-ledger.db` when a disk is attached (step 3); leave unset otherwise |
+| `ANTHROPIC_API_KEY` | *(optional)* Claude chatbot; without it the offline assistant answers |
+| `LEDGER_SERVICE_URL` / `LEDGER_SERVICE_TOKEN` | *(optional)* blockchain / ZKP service (§5.3) |
+
+Render provides `PORT` automatically, and the server listens on it.
+
+**3. Attach a persistent disk** under **Disks** with mount path `/var/data`, and set `DATABASE_PATH` as above, so the SQLite database survives redeploys. Disks require a paid instance type. On the free instance the API works, but data resets on every deploy and the service sleeps after inactivity, so the first request can take about 30 seconds. Start-up also takes a few seconds while demo accounts are seeded.
+
+> [!TIP]
+> To deploy the Docker image (§6.3) instead, choose **Runtime: Docker**, Dockerfile path `apps/server/Dockerfile`, build context `.`, and mount the disk at `/data`. `PORT` and `DATABASE_PATH` are then set by the Dockerfile.
+
+**4. Connect the frontend.** Copy the service URL (`https://<service>.onrender.com`) and add it in GitHub under **Settings → Secrets and variables → Actions → Variables** as `API_URL`, with no trailing slash. Re-run the CI/CD workflow so the Pages build picks it up.
+
+**5. Enable automatic redeploys** *(optional).* Copy the service's **Settings → Deploy Hook** URL into the GitHub **secret** `API_DEPLOY_HOOK`. Every push to `main` then redeploys the API after the tests pass (§6.1). Alternatively, leave Render's own auto-deploy on.
+
+**Verify:** `https://<service>.onrender.com/api/health` returns `{"ok":true,...}`, and signing in at [innovher-competition.github.io/sharing-app](https://innovher-competition.github.io/sharing-app/) works.
+
+| Symptom | Fix |
+|---|---|
+| `405` on `/api/auth/signin` | `API_URL` is not set, or the frontend was not rebuilt after setting it |
+| CORS error in the browser console | `CORS_ORIGIN` must be exactly `https://innovher-competition.github.io` (no path or trailing slash) |
+| Demo accounts missing | Set `SEED_DEMO=true`; seeding only runs on an empty database |
+| Data disappears after deploy | Attach a disk and set `DATABASE_PATH` (step 3) |
+| `ERR_PNPM_NO_SCRIPT_OR_SERVER` / exits with status 1 at start | Start command must be `pnpm start` from the repository root, with the root `start` script present |
+| `JWT_SECRET must be set in production` | Add `JWT_SECRET` under **Environment** |
 
 > [!WARNING]
 > Before handling real patient data, review the deployment against your jurisdiction's health-data rules (e.g. GDPR, HIPAA): serve over HTTPS only, encrypt the database volume at rest, set `SEED_DEMO=false`, rotate `JWT_SECRET`, and confirm the data-processing terms of any external service, including the LLM provider.
@@ -355,7 +408,8 @@ Built with the following open-source tools:
 - **[Express](https://expressjs.com)**: HTTP server
 - **[ethers](https://docs.ethers.org)**: Ethereum wallet integration
 - **[Anthropic](https://www.anthropic.com)**: Claude API for the chatbot
-- **[GitHub Actions](https://github.com/features/actions)** and **[GitHub Pages](https://pages.github.com)**: CI/CD and hosting
+- **[GitHub Actions](https://github.com/features/actions)** and **[GitHub Pages](https://pages.github.com)**: CI/CD and frontend hosting
+- **[Render](https://render.com)**: API hosting
 
 ---
 
