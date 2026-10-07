@@ -49,16 +49,14 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: Check API_URL
-        if: vars.API_URL == ''
-        run: echo "::warning title=API_URL is not set::The site will deploy, but sign-in won't work until the API_URL repository variable points at the deployed API."
       - name: Build web app
         run: pnpm --filter @pcos/web build
         env:
           # Project sites are served from /<repo>/.
           BASE_PATH: /${{ github.event.repository.name }}/
           # Set these under Settings → Secrets and variables → Actions → Variables.
-          VITE_API_URL: ${{ vars.API_URL }}
+          # Render backend; an API_URL repository variable overrides it.
+          VITE_API_URL: ${{ vars.API_URL || 'https://sharing-app-ucsi.onrender.com' }}
           VITE_SHOW_DEMO_ACCOUNTS: ${{ vars.SHOW_DEMO_ACCOUNTS || 'true' }}
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
