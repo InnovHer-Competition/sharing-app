@@ -1,0 +1,22 @@
+{
+  "name": "pcos-health-ledger",
+  "private": true,
+  "version": "0.1.0",
+  "description": "PCOS health record sharing for patients, doctors and researchers: React frontend + Node API with a hash-chained audit ledger and a Claude-powered chatbot.",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace @pcos/server & npm run dev --workspace @pcos/web",
+    "dev:server": "npm run dev --workspace @pcos/server",
+    "dev:web": "npm run dev --workspace @pcos/web",
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=22.13"
+  },
+ 
