@@ -8,7 +8,7 @@ Polycystic ovary syndrome (PCOS) affects an estimated 10–13% of women of repro
 This repository implements the **web application layer** of such an ecosystem: a React frontend and a Node.js API through which **patients, doctors and researchers** perform CRUD operations on PCOS health records under patient-controlled consent. Every write is fingerprinted into a hash-chained ledger, and a **smart chatbot** explains records in plain language using only the data the signed-in user is permitted to see.
 
 > [!NOTE]
-> This repository contains the frontend and backend only. Smart-contract and zero-knowledge-proof (ZKP) logic lives in a separate repository; the API exposes an anchoring adapter (§5.3) through which ledger blocks are forwarded to that service.
+> This repository contains the frontend and backend only. Smart-contract and zero-knowledge-proof (ZKP) logic is provided by the **blockchain service**, and the chatbot's context building and reasoning by the **chatbot service**. The API connects to both: ledger blocks are forwarded to the blockchain service through an anchoring adapter (§5.3), and chat requests carry only the data the signed-in user is permitted to see (§5.2).
 
 > [!IMPORTANT]
 > The PCOS assessment is decision support, not a diagnosis. Androgen and AMH thresholds are assay- and population-specific, and other causes must be excluded by a clinician.
@@ -28,31 +28,41 @@ flowchart LR
   subgraph API["Node.js API (Docker)"]
     A[Auth<br/>JWT + wallet signature]
     R[Records / Consent<br/>access policy]
-    C[Chat context builder]
+    G[Chat gateway]
     L[Hash-chained ledger]
     DB[(SQLite<br/>off-chain store)]
   end
-  CL[Claude API]
-  BC[[Blockchain / ZKP service<br/>separate repo]]
+  subgraph Services["External services"]
+    CB[[Chatbot service<br/>context builder + LLM]]
+    BC[[Blockchain / ZKP service<br/>smart contracts + proofs]]
+  end
 
-  W -- REST + JWT --> A & R & C
+  W -- REST + JWT --> A & R & G
   MM -- personal_sign --> W
   R --> DB
   R --> L
   L --> DB
-  C -- permitted data only --> CL
+  G -- permitted data only --> CB
   L -. block hashes .-> BC
 ```
 
-Health data stays **off-chain** in the API's database. The ledger stores only SHA-256 fingerprints of each payload, linked block-to-block, so tampering with history is detectable (`GET /api/ledger/verify`) and the fingerprints can be anchored on a public chain without exposing personal data.
+Health data stays **off-chain** in the API's database. The ledger stores only SHA-256 fingerprints of each payload, linked block-to-block, so tampering with history is detectable (`GET /api/ledger/verify`) and the fingerprints can be anchored on a public chain by the blockchain service without exposing personal data.
 
 ### 2.2 Roles and Access Model
 
-| Role | Records | Consent | Research data | Chatbot sees |
-|---|---|---|---|---|
-| **Patient** | Full CRUD on own records | Grants / revokes doctors; toggles research sharing | — | Own records, grants |
-| **Doctor** | Read, create, update for patients who granted access; delete only records they authored | Sees who shares with them | — | Records of consenting patients |
-| **Researcher** | No identified records | — | De-identified rows from patients who opted in (pseudonymous subject IDs, no names, notes, medications or exact dates) | Aggregate counts only |
+- **Patient**
+  - Full CRUD on their own records
+  - Grants and revokes doctors' access; turns research sharing on or off
+  - Chatbot sees: their own records and who has access
+- **Doctor**
+  - Reads, creates and updates records of patients who granted access
+  - Deletes only records they authored
+  - Sees which patients share with them
+  - Chatbot sees: records of consenting patients only
+- **Researcher**
+  - No access to identified records
+  - Sees de-identified rows from patients who opted in: pseudonymous subject IDs, with no names, notes, medications or exact dates
+  - Chatbot sees: aggregate counts only
 
 The policy is implemented once as pure functions in [`packages/shared/src/access.ts`](packages/shared/src/access.ts) and enforced by the API; the UI and chatbot reuse the same rules.
 
@@ -103,7 +113,7 @@ sharing-app/
 │   └── server/                  # Node.js API (Docker image)
 │       ├── src/
 │       │   ├── routes/          # auth, records, grants/research, ledger
-│       │   ├── chat/            # context builder, Claude route, offline assistant
+│       │   ├── chat/            # chat gateway: access-filtered context, Claude client, offline fallback
 │       │   ├── db.ts            # SQLite schema & repository
 │       │   ├── ledger.ts        # hash-chained ledger + verification
 │       │   ├── anchor.ts        # adapter to the blockchain/ZKP service
@@ -246,9 +256,9 @@ All routes are under `/api`; everything except sign-up, sign-in and wallet sign-
 | `GET` | `/ledger` · `/ledger/verify` | signed in | Own blocks · chain verification |
 | `POST` | `/chat` | signed in | Streams a plain-text reply |
 
-### 5.2 Chatbot
+### 5.2 Chatbot Gateway
 
-`POST /api/chat` builds a context from the data the user may access (§2.2) and streams the reply. With `ANTHROPIC_API_KEY` set, it calls Claude with a cached system prompt, `effort: low` for responsive chat, and server-side refusal fallbacks (`fallbacks: "default"`). Without a key, a rule-based offline assistant answers common questions (latest findings, BMI, LH:FSH, HOMA-IR, cycle trend, sharing status) so that development and demos work without credentials.
+`POST /api/chat` is the gateway to the chatbot service. It filters the data the signed-in user may access (§2.2), so the chatbot service never receives records outside that user's permissions, and streams the reply back to the browser. The gateway ships with a default implementation that calls Claude directly, so the app works end to end on its own. With `ANTHROPIC_API_KEY` set, it calls Claude with a cached system prompt, `effort: low` for responsive chat, and server-side refusal fallbacks (`fallbacks: "default"`). Without a key, a rule-based offline assistant answers common questions (latest findings, BMI, LH:FSH, HOMA-IR, cycle trend, sharing status) so that development and demos work without credentials.
 
 ### 5.3 Blockchain / ZKP Integration
 
