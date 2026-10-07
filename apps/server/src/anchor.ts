@@ -3,8 +3,8 @@ import { config } from "./config.ts";
 import type { Database } from "./db.ts";
 
 /*
- * Integration point with the blockchain / ZKP service, which lives in a
- * separate repository. When LEDGER_SERVICE_URL is set, every new ledger
+ * Integration point with the blockchain / ZKP service. When
+ * LEDGER_SERVICE_URL is set, every new ledger
  * block is POSTed to `${LEDGER_SERVICE_URL}/anchors` as
  *
  *   { index, hash, prevHash, timestamp, tx: { type, actorId, subjectId, payloadHash } }

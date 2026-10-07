@@ -2,7 +2,7 @@ import type { AccessGrant, PcosRecord, PublicUser } from "./types";
 
 /*
  * Access policy, kept as pure functions so the API, the UI and the tests
- * share one source of truth. The on-chain registry (separate repo) is
+ * share one source of truth. The on-chain registry in the blockchain service is
  * expected to enforce the same rules.
  *
  *  - Patients: full CRUD on their own records; grant/revoke doctors.

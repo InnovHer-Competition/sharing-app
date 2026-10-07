@@ -22,7 +22,7 @@ export const config = {
   chatModel: env.CHAT_MODEL ?? "claude-opus-5-5",
   chatEffort: (env.CHAT_EFFORT ?? "low") as "low" | "medium" | "high" | "xhigh" | "max",
 
-  /** Optional: the external blockchain service (separate repo) that anchors ledger blocks. */
+  /** Optional: the blockchain / ZKP service that anchors ledger blocks. */
   ledgerServiceUrl: env.LEDGER_SERVICE_URL,
   ledgerServiceToken: env.LEDGER_SERVICE_TOKEN,
 };
