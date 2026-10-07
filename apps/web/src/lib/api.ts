@@ -11,7 +11,15 @@ import type {
 } from "@pcos/shared";
 import type { DeidentifiedRecord } from "@pcos/shared";
 
-export const API_URL = (import.meta.env.VITE_API_URL ?? "http://localhost:8787").replace(/\/$/, "");
+// An unset CI variable arrives as "", so treat blank the same as missing.
+// Only local development falls back to the local API; a production build
+// without an API URL would otherwise post to the static host and get 405s.
+const configuredApiUrl = import.meta.env.VITE_API_URL?.trim();
+export const API_URL = (configuredApiUrl || (import.meta.env.DEV ? "http://localhost:8787" : "")).replace(/\/$/, "");
+export const API_CONFIGURED = API_URL !== "";
+
+const NOT_CONFIGURED =
+  "This site isn't connected to an API server yet. Deploy apps/server, set the API_URL repository variable to its URL, and redeploy.";
 
 const TOKEN_KEY = "pcos-ledger:token";
 
@@ -47,6 +55,7 @@ export const setUnauthorizedHandler = (fn: () => void) => {
 };
 
 export async function apiFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  if (!API_CONFIGURED) throw new ApiError(0, NOT_CONFIGURED);
   const token = tokenStore.get();
   const headers = new Headers(init.headers);
   if (init.body && !headers.has("content-type")) headers.set("content-type", "application/json");

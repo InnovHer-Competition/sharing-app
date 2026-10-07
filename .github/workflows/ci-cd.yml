@@ -49,6 +49,9 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Check API_URL
+        if: vars.API_URL == ''
+        run: echo "::warning title=API_URL is not set::The site will deploy, but sign-in won't work until the API_URL repository variable points at the deployed API."
       - name: Build web app
         run: pnpm --filter @pcos/web build
         env:
