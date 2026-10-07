@@ -8,6 +8,8 @@
     "dev:server": "pnpm --filter @pcos/server dev",
     "dev:web": "pnpm --filter @pcos/web dev",
     "build": "pnpm -r build",
+    "build:server": "pnpm --filter @pcos/server build",
+    "start": "pnpm --filter @pcos/server start",
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm -r lint",
     "test": "pnpm -r test"
