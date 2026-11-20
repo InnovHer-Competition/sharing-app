@@ -18,7 +18,7 @@ function DoctorRecords() {
   const selection = usePatientSelection();
   return (
     <>
-      <PageHeader title="Health records" subtitle="Visits of patients who share their records with you." />
+      <PageHeader title="Health records" subtitle="Visits of your patients." />
       <div className="stack">
         <PatientPicker selection={selection} />
         {selection.selected && <RecordList patientId={selection.selected.id} embedded />}

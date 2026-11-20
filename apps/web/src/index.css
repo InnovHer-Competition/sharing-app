@@ -707,24 +707,6 @@ tbody tr:hover {
   font-size: 0.95rem;
 }
 
-/* ---------- ledger ---------- */
-
-.chain {
-  display: grid;
-  gap: 10px;
-}
-.block {
-  display: grid;
-  grid-template-columns: 64px 1fr;
-  gap: 14px;
-  align-items: start;
-}
-.block-index {
-  font-weight: 700;
-  color: var(--accent);
-  font-variant-numeric: tabular-nums;
-}
-
 /* ---------- chat ---------- */
 
 .chat {

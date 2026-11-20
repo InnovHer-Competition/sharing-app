@@ -13,8 +13,9 @@ import type { ChatContext } from "./context.ts";
 import { describeRecord } from "./context.ts";
 
 /*
- * Rule-based assistant used when no ANTHROPIC_API_KEY is configured, so the
- * app stays usable in development and demos. It only answers from the
+ * Rule-based assistant used when no CHATBOT_URL is configured or the chatbot
+ * service can't be reached, so the app stays usable in development and
+ * demos. It only answers from the
  * signed-in user's permitted data and a small set of PCOS facts.
  */
 
@@ -26,18 +27,6 @@ export function offlineReply(question: string, ctx: ChatContext): string {
   const q = question.toLowerCase();
   const own = ctx.patients[0];
   const latest = own && latestRecord(own.records);
-
-  if (ctx.user.role === "researcher") {
-    const r = ctx.research!;
-    return [
-      `There are **${r.consentingPatients}** consenting patients with **${r.records}** de-identified records.`,
-      `**${r.meetsCriteria}** of ${r.consentingPatients} subjects meet ≥2 Rotterdam criteria on their latest known findings.`,
-      `Phenotype distribution: ${Object.entries(r.phenotypes)
-        .map(([k, v]) => `${k === "none" ? "no phenotype" : `phenotype ${k}`}: ${v}`)
-        .join(", ")}.`,
-      "Open the Research dashboard for the full table and charts.",
-    ].join("\n\n");
-  }
 
   if (has(q, "what is pcos", "about pcos", "explain pcos")) {
     return (
@@ -51,20 +40,10 @@ export function offlineReply(question: string, ctx: ChatContext): string {
     );
   }
 
-  if (has(q, "access", "share", "who can see", "consent", "permission")) {
-    if (ctx.user.role === "doctor")
-      return `These patients currently share their records with you: ${ctx.patients.map((p) => p.name).join(", ") || "none yet"}.`;
-    return (
-      `Doctors with access to your records: **${ctx.doctorsWithAccess.join(", ") || "none"}**. ` +
-      `Research sharing is **${ctx.user.researchConsent ? "on" : "off"}**. ` +
-      "You can grant or revoke access at any time on the Sharing page. Each change is written to the audit ledger."
-    );
-  }
-
   if (ctx.user.role === "doctor") {
     const name = ctx.patients.find((p) => q.includes(p.name.toLowerCase().split(" ")[0]));
     if (!name)
-      return `Ask me about a specific patient, e.g. "Summarize ${ctx.patients[0]?.name ?? "<patient>"}". Patients sharing with you: ${ctx.patients.map((p) => p.name).join(", ") || "none"}.`;
+      return `Ask me about a specific patient, e.g. "Summarize ${ctx.patients[0]?.name ?? "<patient>"}". Patients: ${ctx.patients.map((p) => p.name).join(", ") || "none"}.`;
     const last = latestRecord(name.records);
     return last ? `Latest record for **${name.name}**:\n\n\`\`\`\n${describeRecord(last)}\n\`\`\`` : `${name.name} has no records yet.`;
   }
@@ -120,7 +99,7 @@ export function offlineReply(question: string, ctx: ChatContext): string {
     (a.phenotype
       ? `Together these match **phenotype ${PHENOTYPE_LABELS[a.phenotype]}** of the Rotterdam criteria.`
       : `${a.metCount} of 3 criteria are currently met.`) +
-    "\n\nYou can ask me about your BMI, LH:FSH ratio, insulin resistance, cycle trend, or who has access to your records." +
+    "\n\nYou can ask me about your BMI, LH:FSH ratio, insulin resistance or cycle trend." +
     DISCLAIMER
   );
 }

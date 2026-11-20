@@ -1,16 +1,14 @@
 import { type FormEvent, type ReactNode, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { AuthResponse, Role } from "@pcos/shared";
-import { ErrorAlert } from "../components/Layout";
-import { Icon } from "../components/Icon";
+import { HOME } from "../lib/routes";
+import { APP_NAME, ErrorAlert } from "../components/Layout";
 import { api, API_CONFIGURED } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import { hasWallet, signWalletChallenge } from "../lib/wallet";
 
 const DEMO_ACCOUNTS = [
   { email: "anna@demo.health", label: "Patient" },
   { email: "dr.le@demo.health", label: "Doctor" },
-  { email: "research@demo.health", label: "Researcher" },
 ];
 const SHOW_DEMO = import.meta.env.VITE_SHOW_DEMO_ACCOUNTS !== "false";
 
@@ -20,17 +18,16 @@ function AuthLayout({ children }: { children: ReactNode }) {
       <section className="auth-hero">
         <div className="brand" style={{ color: "#fff", padding: 0 }}>
           <span className="brand-mark" style={{ background: "#fff", color: "#5b2a7a" }}>
-            PH
+            PC
           </span>
-          PCOS Health Ledger
+          {APP_NAME}
         </div>
         <div>
-          <h1>Your PCOS health record, shared only on your terms.</h1>
+          <h1>A smart, judgment-free assistant for your PCOS care.</h1>
           <ul>
-            <li>Patients own their records and choose which doctors can see them.</li>
-            <li>Doctors add visits and follow trends for the patients who granted access.</li>
-            <li>Researchers study de-identified data from patients who opted in.</li>
-            <li>Every change is fingerprinted on a tamper-evident ledger.</li>
+            <li>Ask anything about PCOS and get answers grounded in medical guidance.</li>
+            <li>The assistant explains your own records in plain language: cycles, labs, ultrasound.</li>
+            <li>Doctors add visits, follow trends and ask the assistant about their patients.</li>
           </ul>
         </div>
         <small style={{ opacity: 0.75 }}>Decision support only. Not a substitute for medical advice.</small>
@@ -54,7 +51,7 @@ function useFinishAuth() {
   const { accept } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const from = (location.state as { from?: string } | null)?.from ?? "/dashboard";
+  const from = (location.state as { from?: string } | null)?.from ?? HOME;
   return (auth: AuthResponse) => {
     accept(auth);
     navigate(from, { replace: true });
@@ -112,21 +109,6 @@ export function SignIn() {
         <button className="btn btn-primary btn-block" type="submit" disabled={busy}>
           {busy ? "Signing in…" : "Sign in"}
         </button>
-        <div className="divider">or</div>
-        <button
-          className="btn btn-block"
-          type="button"
-          disabled={busy || !hasWallet()}
-          title={hasWallet() ? undefined : "Install MetaMask to sign in with a wallet"}
-          onClick={() =>
-            run(async () => {
-              const { address, signature } = await signWalletChallenge();
-              return api.walletSignIn(address, signature);
-            })
-          }
-        >
-          <Icon name="wallet" /> Sign in with wallet
-        </button>
         {SHOW_DEMO && (
           <p className="demo-accounts">
             Demo accounts (password <code>Demo1234!</code>):{" "}
@@ -154,7 +136,6 @@ export function SignIn() {
 const ROLES: { value: Role; label: string }[] = [
   { value: "patient", label: "Patient" },
   { value: "doctor", label: "Doctor" },
-  { value: "researcher", label: "Researcher" },
 ];
 
 export function SignUp() {
@@ -231,9 +212,6 @@ export function SignUp() {
         <button className="btn btn-primary btn-block" type="submit" disabled={busy}>
           {busy ? "Creating account…" : "Create account"}
         </button>
-        <p className="muted" style={{ fontSize: "0.82rem", margin: 0 }}>
-          You can link a crypto wallet from your account page after signing up.
-        </p>
       </form>
     </AuthLayout>
   );

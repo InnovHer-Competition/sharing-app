@@ -1,4 +1,3 @@
-import { startAnchoring } from "./anchor.ts";
 import { createApp } from "./app.ts";
 import { config } from "./config.ts";
 import { Database } from "./db.ts";
@@ -6,11 +5,12 @@ import { seedDemoData } from "./seed.ts";
 
 const db = new Database(config.databasePath);
 if (config.seedDemo) await seedDemoData(db);
-startAnchoring(db);
 
 const server = createApp(db).listen(config.port, () => {
-  console.log(`PCOS Health Ledger API listening on http://localhost:${config.port}`);
-  console.log(`Chatbot: ${config.anthropicApiKey ? `Claude (${config.chatModel})` : "offline assistant (set ANTHROPIC_API_KEY to use Claude)"}`);
+  console.log(`PCOS App Interface API listening on http://localhost:${config.port}`);
+  console.log(
+    `Chatbot: ${config.chatbotUrl ? `PCOS chatbot service at ${config.chatbotUrl}` : "offline assistant (set CHATBOT_URL to use the chatbot service)"}`,
+  );
 });
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) {

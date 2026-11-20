@@ -1,4 +1,4 @@
-import type { AccessGrant, PcosRecord } from "@pcos/shared";
+import type { PcosRecord } from "@pcos/shared";
 import { hashPassword, randomId } from "./crypto.ts";
 import type { Database, UserRow } from "./db.ts";
 
@@ -9,43 +9,22 @@ export async function seedDemoData(db: Database) {
   if (db.userByEmail("anna@demo.health")) return;
 
   const passwordHash = await hashPassword(DEMO_PASSWORD);
-  const user = (email: string, name: string, role: UserRow["role"], createdAt: string, researchConsent?: boolean): UserRow => ({
+  const user = (email: string, name: string, role: UserRow["role"], createdAt: string): UserRow => ({
     id: randomId(),
     email,
     name,
     role,
     passwordHash,
-    researchConsent: role === "patient" ? Boolean(researchConsent) : undefined,
     createdAt,
   });
 
-  const anna = user("anna@demo.health", "Anna Nguyen", "patient", "2025-01-10T09:00:00.000Z", true);
-  const mai = user("mai@demo.health", "Mai Tran", "patient", "2025-02-02T09:00:00.000Z", true);
-  const linh = user("linh@demo.health", "Linh Pham", "patient", "2025-03-15T09:00:00.000Z", false);
+  const anna = user("anna@demo.health", "Anna Nguyen", "patient", "2025-01-10T09:00:00.000Z");
+  const mai = user("mai@demo.health", "Mai Tran", "patient", "2025-02-02T09:00:00.000Z");
+  const linh = user("linh@demo.health", "Linh Pham", "patient", "2025-03-15T09:00:00.000Z");
   const doctor = user("dr.le@demo.health", "Dr. Hazel Le", "doctor", "2025-01-05T09:00:00.000Z");
   const doctor2 = user("dr.kim@demo.health", "Dr. Minh Kim", "doctor", "2025-01-06T09:00:00.000Z");
-  const researcher = user("research@demo.health", "Dr. Sara Vo", "researcher", "2025-01-07T09:00:00.000Z");
 
-  for (const u of [doctor, doctor2, researcher, anna, mai, linh]) {
-    db.transact(
-      { type: "USER_REGISTERED", actorId: u.id, subjectId: u.id, payload: { id: u.id, email: u.email, role: u.role } },
-      () => db.insertUser(u),
-      u.createdAt,
-    );
-  }
-
-  const grants: AccessGrant[] = [
-    { id: randomId(), patientId: anna.id, doctorId: doctor.id, grantedAt: "2025-01-11T10:00:00.000Z" },
-    { id: randomId(), patientId: mai.id, doctorId: doctor.id, grantedAt: "2025-02-03T10:00:00.000Z" },
-    { id: randomId(), patientId: linh.id, doctorId: doctor2.id, grantedAt: "2025-03-16T10:00:00.000Z" },
-  ];
-  for (const g of grants) {
-    db.transact(
-      { type: "ACCESS_GRANTED", actorId: g.patientId, subjectId: g.id, payload: g, patientId: g.patientId },
-      () => db.insertGrant(g),
-      g.grantedAt,
-    );
-  }
+  for (const u of [doctor, doctor2, anna, mai, linh]) db.insertUser(u);
 
   type Visit = Omit<PcosRecord, "id" | "patientId" | "authorId" | "createdAt" | "updatedAt">;
   const visits: [UserRow, UserRow, Visit][] = [
@@ -60,12 +39,7 @@ export async function seedDemoData(db: Database) {
   ];
   for (const [patient, author, visit] of visits) {
     const at = `${visit.visitDate}T12:00:00.000Z`;
-    const record: PcosRecord = { ...visit, id: randomId(), patientId: patient.id, authorId: author.id, createdAt: at, updatedAt: at };
-    db.transact(
-      { type: "RECORD_CREATED", actorId: author.id, subjectId: record.id, payload: record, patientId: patient.id },
-      () => db.upsertRecord(record),
-      at,
-    );
+    db.upsertRecord({ ...visit, id: randomId(), patientId: patient.id, authorId: author.id, createdAt: at, updatedAt: at });
   }
-  console.log(`Seeded demo accounts (password "${DEMO_PASSWORD}"): anna@, mai@, linh@, dr.le@, dr.kim@, research@demo.health`);
+  console.log(`Seeded demo accounts (password "${DEMO_PASSWORD}"): anna@, mai@, linh@, dr.le@, dr.kim@demo.health`);
 }

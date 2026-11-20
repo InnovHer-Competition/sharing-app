@@ -143,7 +143,7 @@ export function RecordForm({
         </div>
       </fieldset>
       <p className="muted" style={{ margin: 0 }}>
-        Leave a field empty if it wasn't measured. Saving writes a hash of this record to the audit ledger.
+        Leave a field empty if it wasn't measured.
       </p>
       <div className="row">
         <button className="btn btn-primary" type="submit" disabled={saving}>

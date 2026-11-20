@@ -1,11 +1,11 @@
 import { useEffect } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import type { UserSummary } from "@pcos/shared";
 import { api } from "../lib/api";
 import { useAsync } from "../lib/useAsync";
 import { ErrorAlert, Loading } from "./Layout";
 
-/** Doctor-only: the patients who currently share records, with the selection kept in `?patient=`. */
+/** Doctor-only: the patient list, with the selection kept in `?patient=`. */
 export function usePatientSelection() {
   const [params, setParams] = useSearchParams();
   const patients = useAsync(() => api.patients().then((r) => r.patients), []);
@@ -34,7 +34,7 @@ export function PatientPicker({ selection }: { selection: ReturnType<typeof useP
       <div className="card">
         <h2>No patients yet</h2>
         <p className="muted">
-          Patients appear here once they grant you access from their Sharing page. See <Link to="/sharing">Sharing</Link>.
+          Patients appear here once they create an account.
         </p>
       </div>
     );

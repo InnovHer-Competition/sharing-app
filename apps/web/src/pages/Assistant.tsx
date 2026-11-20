@@ -14,13 +14,12 @@ import { useUser } from "../lib/auth";
 
 const SUGGESTIONS: Record<Role, string[]> = {
   patient: [
+    "What is PCOS?",
     "Summarize my latest visit",
     "How has my cycle length changed?",
     "What does my LH:FSH ratio mean?",
-    "Who can see my records?",
   ],
   doctor: ["Which of my patients meet the Rotterdam criteria?", "Summarize the latest visit for each patient", "Flag any abnormal labs"],
-  researcher: ["Summarize the phenotype distribution", "How many subjects meet the Rotterdam criteria?", "Describe the dataset"],
 };
 
 const MarkdownText = () => <MarkdownTextPrimitive smooth />;
@@ -48,11 +47,11 @@ export function Assistant() {
   return (
     <>
       <PageHeader
-        title="Health assistant"
+        title="Smart assistant"
         subtitle={
-          user.role === "researcher"
-            ? "Ask about the de-identified research dataset."
-            : "Ask about PCOS and the records you have access to. It only sees data you're allowed to see."
+          user.role === "doctor"
+            ? "Ask about PCOS and about your patients' records."
+            : "Ask anything about PCOS, or about your own records. No judgment, just clear answers."
         }
       />
       <AssistantRuntimeProvider runtime={runtime}>

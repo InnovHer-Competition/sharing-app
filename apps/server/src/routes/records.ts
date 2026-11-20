@@ -1,13 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import {
-  canCreateRecordFor,
-  canDeleteRecord,
-  canReadPatient,
-  canUpdateRecord,
-  type PcosRecord,
-  type PublicUser,
-} from "@pcos/shared";
+import { canCreateRecordFor, canDeleteRecord, canReadPatient, canUpdateRecord, type PcosRecord, type PublicUser } from "@pcos/shared";
 import { currentUser } from "../auth.ts";
 import { randomId } from "../crypto.ts";
 import type { Database } from "../db.ts";
@@ -39,21 +32,20 @@ export const recordFieldsSchema = z.object({
 
 const createSchema = recordFieldsSchema.extend({ patientId: z.string().min(1) });
 
-/** Patient ids whose identified records this user may read. */
+/** Patient ids whose records this user may read. */
 export function readablePatientIds(db: Database, user: PublicUser): string[] {
   if (user.role === "patient") return [user.id];
-  if (user.role === "doctor") return [...new Set(db.grantsForDoctor(user.id).filter((g) => !g.revokedAt).map((g) => g.patientId))];
-  return [];
+  return db.usersByRole("patient").map((p) => p.id);
 }
 
 export function recordsRouter(db: Database) {
   const router = Router();
-  const grantsFor = (patientId: string) => db.grantsForPatient(patientId);
+  const isPatient = (id: string) => db.userById(id)?.role === "patient";
 
   router.get("/", (req, res) => {
     const user = currentUser(req);
     const requested = typeof req.query.patientId === "string" ? req.query.patientId : undefined;
-    if (requested && !canReadPatient(user, requested, grantsFor(requested))) throw forbidden();
+    if (requested && !canReadPatient(user, requested)) throw forbidden();
     const ids = requested ? [requested] : readablePatientIds(db, user);
     res.json({ records: db.recordsForPatients(ids) });
   });
@@ -61,30 +53,26 @@ export function recordsRouter(db: Database) {
   router.get("/:id", (req, res) => {
     const user = currentUser(req);
     const record = db.recordById(req.params.id);
-    if (!record || !canReadPatient(user, record.patientId, grantsFor(record.patientId))) throw notFound("Record not found.");
+    if (!record || !canReadPatient(user, record.patientId)) throw notFound("Record not found.");
     res.json({ record });
   });
 
   router.post("/", (req, res) => {
     const user = currentUser(req);
     const input = parseBody(createSchema, req.body);
-    if (!canCreateRecordFor(user, input.patientId, grantsFor(input.patientId)))
-      throw forbidden("You don't have permission to add records for this patient.");
+    if (!canCreateRecordFor(user, input.patientId)) throw forbidden("You don't have permission to add records for this patient.");
+    if (!isPatient(input.patientId)) throw notFound("Patient not found.");
     const now = new Date().toISOString();
     const record: PcosRecord = { ...input, id: randomId(), authorId: user.id, createdAt: now, updatedAt: now };
-    db.transact(
-      { type: "RECORD_CREATED", actorId: user.id, subjectId: record.id, payload: record, patientId: record.patientId },
-      () => db.upsertRecord(record),
-    );
+    db.upsertRecord(record);
     res.status(201).json({ record });
   });
 
   router.put("/:id", (req, res) => {
     const user = currentUser(req);
     const existing = db.recordById(req.params.id);
-    if (!existing || !canReadPatient(user, existing.patientId, grantsFor(existing.patientId)))
-      throw notFound("Record not found.");
-    if (!canUpdateRecord(user, existing, grantsFor(existing.patientId))) throw forbidden();
+    if (!existing || !canReadPatient(user, existing.patientId)) throw notFound("Record not found.");
+    if (!canUpdateRecord(user, existing)) throw forbidden();
     const input = parseBody(recordFieldsSchema, req.body);
     // PUT replaces the clinical fields; identity and authorship are preserved.
     const record: PcosRecord = {
@@ -95,30 +83,17 @@ export function recordsRouter(db: Database) {
       createdAt: existing.createdAt,
       updatedAt: new Date().toISOString(),
     };
-    db.transact(
-      { type: "RECORD_UPDATED", actorId: user.id, subjectId: record.id, payload: record, patientId: record.patientId },
-      () => db.upsertRecord(record),
-    );
+    db.upsertRecord(record);
     res.json({ record });
   });
 
   router.delete("/:id", (req, res) => {
     const user = currentUser(req);
     const existing = db.recordById(req.params.id);
-    if (!existing || !canReadPatient(user, existing.patientId, grantsFor(existing.patientId)))
-      throw notFound("Record not found.");
-    if (!canDeleteRecord(user, existing, grantsFor(existing.patientId)))
+    if (!existing || !canReadPatient(user, existing.patientId)) throw notFound("Record not found.");
+    if (!canDeleteRecord(user, existing))
       throw forbidden("Only the patient, or the doctor who wrote this record, can delete it.");
-    db.transact(
-      {
-        type: "RECORD_DELETED",
-        actorId: user.id,
-        subjectId: existing.id,
-        payload: { id: existing.id, deletedAt: new Date().toISOString() },
-        patientId: existing.patientId,
-      },
-      () => db.deleteRecord(existing.id),
-    );
+    db.deleteRecord(existing.id);
     res.status(204).end();
   });
 

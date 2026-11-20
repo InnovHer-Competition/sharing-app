@@ -1,7 +1,7 @@
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
-// BASE_PATH is set by CI for GitHub Pages project sites, e.g. "/sharing-app/".
+// BASE_PATH is set by CI for GitHub Pages project sites, e.g. "/app-interface/".
 export default defineConfig({
   base: process.env.BASE_PATH ?? "/",
   plugins: [react()],

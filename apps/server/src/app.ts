@@ -6,7 +6,6 @@ import { config } from "./config.ts";
 import type { Database } from "./db.ts";
 import { errorHandler } from "./http.ts";
 import { authRouter } from "./routes/auth.ts";
-import { ledgerRouter } from "./routes/ledger.ts";
 import { peopleRouter } from "./routes/people.ts";
 import { recordsRouter } from "./routes/records.ts";
 
@@ -23,13 +22,12 @@ export function createApp(db: Database) {
   });
 
   app.get("/api/health", (_req, res) => {
-    res.json({ ok: true, chat: config.anthropicApiKey ? "claude" : "offline", anchoring: Boolean(config.ledgerServiceUrl) });
+    res.json({ ok: true, chat: config.chatbotUrl ? "chatbot" : "offline" });
   });
 
   const auth = authenticate(db);
   app.use("/api/auth", authRouter(db));
   app.use("/api/records", auth, recordsRouter(db));
-  app.use("/api/ledger", auth, ledgerRouter(db));
   app.use("/api/chat", auth, chatRouter(db));
   app.use("/api", auth, peopleRouter(db));
 

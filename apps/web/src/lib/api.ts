@@ -1,15 +1,4 @@
-import type {
-  AuthResponse,
-  Block,
-  GrantView,
-  LedgerVerification,
-  PcosRecord,
-  PublicUser,
-  RecordInput,
-  Role,
-  UserSummary,
-} from "@pcos/shared";
-import type { DeidentifiedRecord } from "@pcos/shared";
+import type { AuthResponse, PcosRecord, PublicUser, RecordInput, Role, UserSummary } from "@pcos/shared";
 
 const configuredApiUrl = import.meta.env.VITE_API_URL?.trim();
 export const API_URL = (configuredApiUrl || (import.meta.env.DEV ? "http://localhost:8787" : "")).replace(/\/$/, "");
@@ -18,7 +7,7 @@ export const API_CONFIGURED = API_URL !== "";
 const NOT_CONFIGURED =
   "This site isn't connected to an API server yet. Deploy apps/server, set the API_URL repository variable to its URL, and redeploy.";
 
-const TOKEN_KEY = "pcos-ledger:token";
+const TOKEN_KEY = "pcos-app:token";
 
 export const tokenStore = {
   get(): string | null {
@@ -87,11 +76,6 @@ export const api = {
   signUp: (input: { name: string; email: string; password: string; role: Role }) =>
     json<AuthResponse>("/auth/signup", send("POST", input)),
   signIn: (email: string, password: string) => json<AuthResponse>("/auth/signin", send("POST", { email, password })),
-  walletNonce: (address: string) => json<{ message: string }>(`/auth/wallet/nonce?address=${encodeURIComponent(address)}`),
-  walletSignIn: (address: string, signature: string) =>
-    json<AuthResponse>("/auth/wallet", send("POST", { address, signature })),
-  linkWallet: (address: string, signature: string) =>
-    json<{ user: PublicUser }>("/auth/wallet/link", send("POST", { address, signature })),
   me: () => json<{ user: PublicUser }>("/auth/me"),
 
   records: (patientId?: string) =>
@@ -102,15 +86,5 @@ export const api = {
     json<{ record: PcosRecord }>(`/records/${id}`, send("PUT", input)),
   deleteRecord: (id: string) => json<void>(`/records/${id}`, send("DELETE")),
 
-  grants: () => json<{ grants: GrantView[] }>("/grants"),
-  grant: (doctorId: string) => json<{ grant: GrantView }>("/grants", send("POST", { doctorId })),
-  revoke: (grantId: string) => json<{ grant: GrantView }>(`/grants/${grantId}`, send("DELETE")),
-  setResearchConsent: (consent: boolean) =>
-    json<{ user: PublicUser }>("/me/research-consent", send("PUT", { consent })),
-  doctors: () => json<{ doctors: UserSummary[] }>("/doctors"),
   patients: () => json<{ patients: UserSummary[] }>("/patients"),
-  researchDataset: () => json<{ consentingPatients: number; records: DeidentifiedRecord[] }>("/research/dataset"),
-
-  ledger: () => json<{ blocks: Block[]; height: number; headHash: string }>("/ledger"),
-  verifyLedger: () => json<LedgerVerification>("/ledger/verify"),
 };

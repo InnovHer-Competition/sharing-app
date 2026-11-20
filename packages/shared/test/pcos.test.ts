@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { canDeleteRecord, canReadPatient, deidentify } from "../src/access";
+import { canDeleteRecord, canReadPatient } from "../src/permissions";
 import { assessRotterdam, bmi, currentFindings, homaIr, lhFshRatio } from "../src/pcos";
-import type { AccessGrant, PcosRecord, PublicUser } from "../src/types";
+import type { PcosRecord, PublicUser } from "../src/types";
 
 const record = (fields: Partial<PcosRecord> = {}): PcosRecord => ({
   id: "r1",
@@ -51,27 +51,21 @@ describe("derived metrics", () => {
   });
 });
 
-describe("access policy", () => {
+describe("record permissions", () => {
   const user = (id: string, role: PublicUser["role"]): PublicUser => ({ id, email: "", name: "", role, createdAt: "" });
   const patient = user("p1", "patient");
+  const otherPatient = user("p2", "patient");
   const doctor = user("d1", "doctor");
-  const researcher = user("x1", "researcher");
-  const grant: AccessGrant = { id: "g1", patientId: "p1", doctorId: "d1", grantedAt: "" };
 
-  it("lets doctors read only with an active grant", () => {
-    expect(canReadPatient(doctor, "p1", [grant])).toBe(true);
-    expect(canReadPatient(doctor, "p1", [{ ...grant, revokedAt: "now" }])).toBe(false);
-    expect(canReadPatient(researcher, "p1", [grant])).toBe(false);
-    expect(canReadPatient(patient, "p1", [])).toBe(true);
+  it("lets patients read only their own records and doctors read any patient", () => {
+    expect(canReadPatient(patient, "p1")).toBe(true);
+    expect(canReadPatient(otherPatient, "p1")).toBe(false);
+    expect(canReadPatient(doctor, "p1")).toBe(true);
   });
 
   it("lets doctors delete only records they authored", () => {
-    expect(canDeleteRecord(doctor, record({ authorId: "d1" }), [grant])).toBe(true);
-    expect(canDeleteRecord(doctor, record({ authorId: "p1" }), [grant])).toBe(false);
-  });
-
-  it("strips identifiers and free text when de-identifying", () => {
-    const row = deidentify(record({ notes: "private", medications: "x", weightKg: 60 }), "S-001");
-    expect(row).toEqual({ subject: "S-001", visitYear: 2026, weightKg: 60 });
+    expect(canDeleteRecord(doctor, record({ authorId: "d1" }))).toBe(true);
+    expect(canDeleteRecord(doctor, record({ authorId: "p1" }))).toBe(false);
+    expect(canDeleteRecord(patient, record({ authorId: "d1" }))).toBe(true);
   });
 });

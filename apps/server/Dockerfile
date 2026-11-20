@@ -1,5 +1,5 @@
 # Build from the repository root:
-#   docker build -f apps/server/Dockerfile -t pcos-health-ledger-api .
+#   docker build -f apps/server/Dockerfile -t pcos-app-interface-api .
 
 FROM node:24-alpine AS base
 # pnpm version comes from "packageManager" in package.json.
@@ -23,7 +23,7 @@ RUN pnpm install --frozen-lockfile --prod --filter @pcos/server
 FROM node:24-alpine
 ENV NODE_ENV=production \
     PORT=8787 \
-    DATABASE_PATH=/data/pcos-ledger.db
+    DATABASE_PATH=/data/pcos.db
 # pnpm links packages from the root store, so keep the same layout.
 COPY --from=prod-deps /app/node_modules /app/node_modules
 COPY --from=prod-deps /app/apps/server/node_modules /app/apps/server/node_modules

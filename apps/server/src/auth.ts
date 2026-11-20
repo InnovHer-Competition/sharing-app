@@ -15,7 +15,7 @@ declare global {
 }
 
 const secret = new TextEncoder().encode(config.jwtSecret);
-const ISSUER = "pcos-health-ledger";
+const ISSUER = "pcos-app-interface";
 
 export async function issueToken(user: PublicUser): Promise<string> {
   return new SignJWT({ role: user.role })

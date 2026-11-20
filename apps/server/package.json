@@ -11,9 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.132.0",
     "cors": "^2.8.6",
-    "ethers": "^6.17.0",
     "express": "^5.2.1",
     "jose": "^6.2.12",
     "zod": "^4.6.5"

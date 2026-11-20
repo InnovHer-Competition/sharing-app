@@ -10,7 +10,7 @@ if (isProduction && !env.JWT_SECRET) {
 export const config = {
   isProduction,
   port: Number(env.PORT ?? 8787),
-  databasePath: env.DATABASE_PATH ?? "./data/pcos-ledger.db",
+  databasePath: env.DATABASE_PATH ?? "./data/pcos.db",
   /** Comma-separated list of allowed browser origins. */
   corsOrigins: (env.CORS_ORIGIN ?? "http://localhost:5173").split(",").map((o) => o.trim()),
   jwtSecret: env.JWT_SECRET ?? randomToken(32),
@@ -18,11 +18,12 @@ export const config = {
   /** Seed demo accounts and records into an empty database. */
   seedDemo: (env.SEED_DEMO ?? (isProduction ? "false" : "true")) === "true",
 
-  anthropicApiKey: env.ANTHROPIC_API_KEY,
-  chatModel: env.CHAT_MODEL ?? "claude-opus-5-5",
-  chatEffort: (env.CHAT_EFFORT ?? "low") as "low" | "medium" | "high" | "xhigh" | "max",
-
-  /** Optional: the blockchain / ZKP service that anchors ledger blocks. */
-  ledgerServiceUrl: env.LEDGER_SERVICE_URL,
-  ledgerServiceToken: env.LEDGER_SERVICE_TOKEN,
+  /**
+   * Base URL of the PCOS chatbot service (InnovHer-Competition/chat-bot),
+   * e.g. http://localhost:8000. Without it the built-in offline assistant answers.
+   */
+  chatbotUrl: env.CHATBOT_URL?.trim().replace(/\/$/, "") || undefined,
+  chatbotToken: env.CHATBOT_TOKEN,
+  /** The chatbot runs a local LLM, so allow generous time for a reply. */
+  chatbotTimeoutMs: Number(env.CHATBOT_TIMEOUT_MS ?? 120_000),
 };

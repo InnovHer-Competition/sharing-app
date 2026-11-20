@@ -7,27 +7,22 @@ import {
   type PcosRecord,
   PHENOTYPE_LABELS,
   type PublicUser,
-  researchDataset,
   sortByVisit,
 } from "@pcos/shared";
 import type { Database } from "../db.ts";
-import { toPublicUser } from "../db.ts";
 import { readablePatientIds } from "../routes/records.ts";
 
 /*
- * Builds the data the chatbot may see for the signed-in user, applying the
- * same access rules as the REST API: patients see their own records,
- * doctors see consenting patients, researchers only de-identified aggregates.
+ * Builds the record data the chatbot may use for the signed-in user:
+ * patients get their own records, doctors get their patients' records.
  */
 
 export interface ChatContext {
   user: PublicUser;
-  /** Plain-text summary given to the model. */
+  /** Plain-text summary passed to the chatbot service. */
   summary: string;
   /** Structured data for the built-in (offline) assistant. */
   patients: { name: string; records: PcosRecord[] }[];
-  doctorsWithAccess: string[];
-  research?: { consentingPatients: number; records: number; meetsCriteria: number; phenotypes: Record<string, number> };
 }
 
 const fmt = (v: number | undefined, unit = "") => (v === undefined ? "n/a" : `${v}${unit}`);
@@ -54,58 +49,13 @@ export function describeRecord(r: PcosRecord): string {
 export function buildChatContext(db: Database, user: PublicUser): ChatContext {
   const header = `Signed-in user: ${user.name} (role: ${user.role}). Today is ${new Date().toISOString().slice(0, 10)}.`;
 
-  if (user.role === "researcher") {
-    const consenting = db.consentingPatients();
-    const records = db.recordsForPatients(consenting.map((p) => p.id));
-    const rows = researchDataset(user, records, consenting.map(toPublicUser));
-    // Per subject, on the latest known value of each measurement. Only counts leave this function.
-    const phenotypes: Record<string, number> = {};
-    let meets = 0;
-    for (const patient of consenting) {
-      const findings = currentFindings(records.filter((r) => r.patientId === patient.id));
-      if (!findings) continue;
-      const a = assessRotterdam(findings);
-      if (a.meetsCriteria) meets++;
-      const key = a.phenotype ?? "none";
-      phenotypes[key] = (phenotypes[key] ?? 0) + 1;
-    }
-    const research = { consentingPatients: consenting.length, records: rows.length, meetsCriteria: meets, phenotypes };
-    return {
-      user,
-      patients: [],
-      doctorsWithAccess: [],
-      research,
-      summary: [
-        header,
-        "The researcher can only see de-identified, aggregated data from patients who consented to research.",
-        `Consenting patients: ${research.consentingPatients}; de-identified records: ${research.records}; subjects meeting Rotterdam criteria (latest known findings): ${meets}.`,
-        `Phenotype counts per subject: ${JSON.stringify(phenotypes)}.`,
-      ].join("\n"),
-    };
-  }
-
-  const patientIds = readablePatientIds(db, user);
-  const patients = patientIds.map((id) => ({
+  const patients = readablePatientIds(db, user).map((id) => ({
     name: db.userById(id)?.name ?? "Unknown",
     records: sortByVisit(db.recordsForPatients([id])),
   }));
-  const doctorsWithAccess =
-    user.role === "patient"
-      ? db
-          .grantsForPatient(user.id)
-          .filter((g) => !g.revokedAt)
-          .map((g) => db.userById(g.doctorId)?.name ?? "Unknown doctor")
-      : [];
 
   const parts = [header];
-  if (user.role === "patient") {
-    parts.push(
-      `Doctors with access to the patient's records: ${doctorsWithAccess.join(", ") || "none"}.`,
-      `Shares de-identified data with researchers: ${user.researchConsent ? "yes" : "no"}.`,
-    );
-  } else {
-    parts.push(`Patients who granted this doctor access: ${patients.map((p) => p.name).join(", ") || "none"}.`);
-  }
+  if (user.role === "doctor") parts.push(`Patients: ${patients.map((p) => p.name).join(", ") || "none"}.`);
   for (const p of patients) {
     // Most recent visits first, capped to keep the prompt small.
     const recent = p.records.slice(-6).reverse();
@@ -122,5 +72,5 @@ export function buildChatContext(db: Database, user: PublicUser): ChatContext {
       ...recent.map(describeRecord),
     );
   }
-  return { user, patients, doctorsWithAccess, summary: parts.join("\n") };
+  return { user, patients, summary: parts.join("\n") };
 }

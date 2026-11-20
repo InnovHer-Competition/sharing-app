@@ -4,16 +4,16 @@ import type { Role } from "@pcos/shared";
 import { useAuth, useUser } from "../lib/auth";
 import { Icon, type IconName } from "./Icon";
 
-const NAV: { to: string; label: string; icon: IconName; roles: Role[] }[] = [
-  { to: "/dashboard", label: "Dashboard", icon: "dashboard", roles: ["patient", "doctor", "researcher"] },
-  { to: "/records", label: "Health records", icon: "records", roles: ["patient", "doctor"] },
-  { to: "/sharing", label: "Sharing & consent", icon: "share", roles: ["patient", "doctor"] },
-  { to: "/assistant", label: "Assistant", icon: "chat", roles: ["patient", "doctor", "researcher"] },
-  { to: "/ledger", label: "Audit ledger", icon: "ledger", roles: ["patient", "doctor", "researcher"] },
-  { to: "/account", label: "Account", icon: "account", roles: ["patient", "doctor", "researcher"] },
+export const APP_NAME = "PCOS Care Assistant";
+
+const NAV: { to: string; label: string; icon: IconName }[] = [
+  { to: "/assistant", label: "Smart assistant", icon: "chat" },
+  { to: "/dashboard", label: "Dashboard", icon: "dashboard" },
+  { to: "/records", label: "Health records", icon: "records" },
+  { to: "/account", label: "Account", icon: "account" },
 ];
 
-export const ROLE_LABEL: Record<Role, string> = { patient: "Patient", doctor: "Doctor", researcher: "Researcher" };
+export const ROLE_LABEL: Record<Role, string> = { patient: "Patient", doctor: "Doctor" };
 
 export function Layout() {
   const user = useUser();
@@ -29,11 +29,11 @@ export function Layout() {
   return (
     <div className="shell">
       <aside className={`sidebar${open ? " open" : ""}`} aria-label="Main navigation">
-        <NavLink to="/dashboard" className="brand">
-          <span className="brand-mark">PH</span>
-          PCOS Health Ledger
+        <NavLink to="/assistant" className="brand">
+          <span className="brand-mark">PC</span>
+          {APP_NAME}
         </NavLink>
-        {NAV.filter((n) => n.roles.includes(user.role)).map((n) => (
+        {NAV.map((n) => (
           <NavLink key={n.to} to={n.to} className="nav-link">
             <Icon name={n.icon} />
             {n.label}
@@ -52,7 +52,7 @@ export function Layout() {
           <button className="btn btn-sm" aria-label="Open menu" aria-expanded={open} onClick={() => setOpen(!open)}>
             <Icon name="menu" />
           </button>
-          <strong>PCOS Health Ledger</strong>
+          <strong>{APP_NAME}</strong>
         </div>
         <main className="main">
           <Outlet />
