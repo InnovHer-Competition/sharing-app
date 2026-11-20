@@ -4,7 +4,7 @@ import type { Role } from "@pcos/shared";
 import { useAuth, useUser } from "../lib/auth";
 import { Icon, type IconName } from "./Icon";
 
-export const APP_NAME = "PCOS Care Assistant";
+export const APP_NAME = "Sharing App PCOS";
 
 const NAV: { to: string; label: string; icon: IconName }[] = [
   { to: "/assistant", label: "Smart assistant", icon: "chat" },

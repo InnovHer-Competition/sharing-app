@@ -1,5 +1,5 @@
 {
-  "name": "app-interface",
+  "name": "sharing-app-pcos",
   "private": true,
   "version": "0.1.0",
   "description": "PCOS care app for patients and doctors: React frontend + Node API, centred on a smart chatbot connected to the PCOS chatbot service.",
