@@ -1,5 +1,10 @@
 # Sharing App PCOS
 
+**Live app:** [pcos-care-assistant.vercel.app](https://pcos-care-assistant.vercel.app) · **API:** [sharing-app-ucsi.onrender.com/api/health](https://sharing-app-ucsi.onrender.com/api/health) · **Chatbot:** [chat-bot-l53v.onrender.com/health](https://chat-bot-l53v.onrender.com/health)
+
+> [!NOTE]
+> The API and chatbot run on Render's free tier and sleep when idle, so the first request after a quiet period can take up to a minute.
+
 ## 1. Overview
 
 Polycystic ovary syndrome (PCOS) affects an estimated 10–13% of women of reproductive age [1] and is diagnosed when two of three features are present: ovulatory dysfunction, hyperandrogenism, and polycystic ovarian morphology [2], [3]. Many of its symptoms are sensitive (cycles, hair growth, acne, fertility, weight), so patients often hesitate to ask about them, and short clinic visits leave little time to explain lab results.
@@ -241,7 +246,14 @@ All routes are under `/api`; everything except sign-up and sign-in requires `Aut
 | `deploy-web` | `main` | Builds the frontend and deploys it to **GitHub Pages** |
 | `publish-server` | `main` | Builds `apps/server/Dockerfile`, pushes `ghcr.io/<owner>/<repo>-api:latest` and `:sha-…`, and triggers the Render deploy hook when `API_DEPLOY_HOOK` is set |
 
-### 5.2 Frontend: GitHub Pages
+### 5.2 Frontend: Vercel (live)
+
+The live frontend is the Vercel project `sharing-app` (framework preset **Vite**), deployed from `main` on every push and served at **[pcos-care-assistant.vercel.app](https://pcos-care-assistant.vercel.app)**. The older `sharing-app-eight.vercel.app` address still points to the same deployment.
+
+- Set `VITE_API_URL` to the Render API URL (no trailing slash) in the Vercel project's environment variables.
+- Every frontend address must be listed in the API's `CORS_ORIGIN` (comma-separated), e.g. `https://pcos-care-assistant.vercel.app,https://sharing-app-eight.vercel.app,https://innovher-competition.github.io`.
+
+### 5.3 Frontend: GitHub Pages
 
 1. **Settings → Pages → Source:** select **GitHub Actions**.
 2. **Settings → Secrets and variables → Actions → Variables:**
@@ -249,7 +261,7 @@ All routes are under `/api`; everything except sign-up and sign-in requires `Aut
    - `SHOW_DEMO_ACCOUNTS` *(optional)*: `false` to hide demo shortcuts
 3. Push to `main`. The site is published at `https://<owner>.github.io/<repo>/`, i.e. [innovher-competition.github.io/app-interface](https://innovher-competition.github.io/app-interface/) for this repository.
 
-### 5.3 Backend: Docker
+### 5.4 Backend: Docker
 
 ```bash
 # Build from the repository root
@@ -264,7 +276,7 @@ docker run -p 8787:8787 -v pcos-data:/data \
   pcos-app-interface-api
 ```
 
-### 5.4 Backend: Render
+### 5.5 Backend: Render
 
 The API is hosted on **[Render](https://render.com)** in the team workspace: [dashboard.render.com/w/tea-db3bhkt9fdbs73ajuhu0](https://dashboard.render.com/w/tea-db3bhkt9fdbs73ajuhu0), using Render's Node runtime from the repository root.
 
@@ -277,14 +289,14 @@ The API is hosted on **[Render](https://render.com)** in the team workspace: [da
 | Start command | `pnpm start` |
 | Health check path | `/api/health` |
 
-**Environment variables:** `NODE_ENV=production`, `JWT_SECRET` (random secret), `CORS_ORIGIN=https://innovher-competition.github.io`, `SEED_DEMO`, `CHATBOT_URL` (public URL of the deployed chatbot service), and `DATABASE_PATH=/var/data/pcos.db` when a disk is mounted at `/var/data`. Render provides `PORT` automatically.
+**Environment variables:** `NODE_ENV=production`, `JWT_SECRET` (random secret), `CORS_ORIGIN` (every frontend address, comma-separated, see §5.2), `SEED_DEMO`, `CHATBOT_URL` (public URL of the deployed chatbot service), and `DATABASE_PATH=/var/data/pcos.db` when a disk is mounted at `/var/data`. Render provides `PORT` automatically.
 
 **Connect the frontend:** add the service URL (no trailing slash) as the `API_URL` repository variable and re-run the CI/CD workflow.
 
 | Symptom | Fix |
 |---|---|
 | `405` on `/api/auth/signin` | `API_URL` is not set, or the frontend was not rebuilt after setting it |
-| CORS error in the browser console | `CORS_ORIGIN` must be exactly `https://innovher-competition.github.io` (no path or trailing slash) |
+| CORS error in the browser console | The site's address must be in `CORS_ORIGIN`, exactly as the browser shows it (no path or trailing slash) |
 | Assistant says the chatbot service is unavailable | `CHATBOT_URL` is wrong or the service is down; check `{CHATBOT_URL}/docs` |
 | Demo accounts missing | Set `SEED_DEMO=true`; seeding only runs on an empty database |
 | Data disappears after deploy | Attach a disk and set `DATABASE_PATH` |
